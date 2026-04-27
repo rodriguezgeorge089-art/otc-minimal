@@ -2,15 +2,15 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from flet_fastapi import FastAPIAdapter
 import flet as ft
+import flet_fastapi
 from supabase import create_client, Client
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ----- Flet app function (identical to before) -----
+# ----- Flet app function (your full UI) -----
 def flet_main(page: ft.Page):
     page.title = "OTC Medicine Marketplace"
     current_user = None
@@ -19,7 +19,6 @@ def flet_main(page: ft.Page):
         page.snack_bar = ft.SnackBar(ft.Text(text, color=color), open=True)
         page.update()
 
-    # Sign Up view
     def signup_view():
         email = ft.TextField(label="Email", width=300)
         password = ft.TextField(label="Password", password=True, can_reveal_password=True, width=300)
@@ -52,7 +51,6 @@ def flet_main(page: ft.Page):
             ft.TextButton("Already have an account? Log in", on_click=lambda _: page.go("/login"))
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
 
-    # Login view
     def login_view():
         email = ft.TextField(label="Email", width=300)
         password = ft.TextField(label="Password", password=True, can_reveal_password=True, width=300)
@@ -76,7 +74,6 @@ def flet_main(page: ft.Page):
             ft.TextButton("Don't have an account? Sign up", on_click=lambda _: page.go("/signup"))
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
 
-    # Dashboard
     def dashboard_view():
         nonlocal current_user
         if not current_user:
@@ -100,7 +97,6 @@ def flet_main(page: ft.Page):
             ft.ElevatedButton("Logout", on_click=logout),
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
 
-    # Route handler
     def route_change(route):
         page.controls.clear()
         if page.route == "/signup":
@@ -114,13 +110,16 @@ def flet_main(page: ft.Page):
     page.on_route_change = route_change
     page.go("/login")
 
-# ----- FastAPI app -----
+# ----- FastAPI app with Flet mounted -----
 app = FastAPI()
 
-# Mount Flet using FastAPIAdapter from flet-fastapi
-flet_adapter = FastAPIAdapter(flet_main, "/app")
-flet_adapter.mount(app)
+# Create a Flet ASGI sub‑app
+flet_app = flet_fastapi.app(flet_main)
 
+# Mount it at /app
+app.mount("/app", flet_app)
+
+# Redirect root to the Flet app
 @app.get("/")
 async def root():
     return RedirectResponse(url="/app")
